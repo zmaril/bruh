@@ -25,9 +25,7 @@ Vagrant.configure(2) do |config|
   # documentation for more information about their specific syntax and use.
   config.vm.provision "shell", inline: <<-SHELL
      sudo apt-get update
-     sudo apt-get install -y lua5.3 luajit htop
+     sudo apt-get install -y lua5.3 luajit htop luarocks
+     sudo luarocks install ljsyscall
    SHELL
-
-  config.vm.provision "docker",
-      images:["justincormack/ljsyscall"]
 end
