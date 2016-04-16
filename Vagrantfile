@@ -26,6 +26,6 @@ Vagrant.configure(2) do |config|
   config.vm.provision "shell", inline: <<-SHELL
      sudo apt-get update
      sudo apt-get install -y lua5.3 luajit htop luarocks
-     sudo luarocks install ljsyscall
+     sudo luarocks install rockspec/ljsyscall-scm-1.rockspec
    SHELL
 end
