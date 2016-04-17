@@ -6,6 +6,7 @@ Datalog! Ptrace! Lua!
 set -e 
 git clone git@github.com:zmaril/bruh.git
 cd buh
+vagrant plugin install vagrant-vbguest
 vagrant up
 vagrant ssh
 ```

@@ -2,7 +2,7 @@
 # vi: set ft=ruby :
 
 Vagrant.configure(2) do |config|
-  config.vm.box = "ubuntu/xenial64"
+  config.vm.box = "hashicorp/precise64"
 
   # Provider-specific configuration so you can fine-tune various
   # backing providers for Vagrant. These expose provider-specific options.
@@ -24,8 +24,20 @@ Vagrant.configure(2) do |config|
   # Puppet, Chef, Ansible, Salt, and Docker are also available. Please see the
   # documentation for more information about their specific syntax and use.
   config.vm.provision "shell", inline: <<-SHELL
+     set -e
      sudo apt-get update
-     sudo apt-get install -y lua5.3 luajit htop luarocks
-     sudo luarocks install rockspec/ljsyscall-scm-1.rockspec
+     sudo apt-get install -y git htop luarocks
+
+     #Install luajit
+     git clone http://luajit.org/git/luajit-2.0.git
+     cd luajit-2.0
+     make && make install
+     cd -
+
+     #Install ljsyscall locally
+     git clone https://github.com/justincormack/ljsyscall.git
+     cd ljsyscall
+     luarocks install rockspec/ljsyscall-scm-1.rockspec
+     sudo luarocks install inspect
    SHELL
 end
