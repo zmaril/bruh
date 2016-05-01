@@ -1,25 +1,15 @@
-io = require('io');
-table = require('table');
-ffi = require('ffi');
-inspect = require('inspect');
-S = require('syscall');
+local io        = require('io');
+local table     = require('table');
+local ffi       = require('ffi');
+local inspect   = require('inspect');
+local S         = require('syscall');
+local signal    = require "posix.signal"
+local unistd    = require "posix.unistd"
+local posix     = require('posix')
+local nr        = require("syscall." .. S.abi.os .. "." .. S.abi.arch .. ".nr")
+local constants = require("syscall." .. S.abi.os .. "." .. S.abi.arch .. ".constants")
 
-nr = require("syscall." .. S.abi.os .. "." .. S.abi.arch .. ".nr")
-
-function remove_fn(item)
-  if type(item) ~= "function" and type(item) ~= "cdata" then return item end
-end
-
---[[function p(o)
-  print(inspect(o,{depth=2,process=remove_fn}))
-  end]]--
-
-
-function p(o)
-  print(inspect(o,{depth=1}))
-end
-
-ffi.cdef [[
+c = ffi.cdef [[
 enum __ptrace_request
 {
   PTRACE_TRACEME = 0,
@@ -46,49 +36,76 @@ enum __ptrace_request
   PTRACE_GETSIGINFO = 0x4202,
   PTRACE_SETSIGINFO = 0x4203
 };
-extern long int ptrace (enum __ptrace_request __request, ...);
+long ptrace(enum __ptrace_request request, pid_t pid, void *addr, void *data);
+typedef struct {
+        unsigned long   r15;
+        unsigned long   r14;
+        unsigned long   r13;
+        unsigned long   r12;
+        unsigned long   bp;
+        unsigned long   bx;
+        unsigned long   r11;
+        unsigned long   r10;
+        unsigned long   r9;
+        unsigned long   r8;
+        unsigned long   ax;
+        unsigned long   cx;
+        unsigned long   dx;
+        unsigned long   si;
+        unsigned long   di;
+        unsigned long   orig_ax;
+        unsigned long   ip;
+        unsigned long   cs;
+        unsigned long   flags;
+        unsigned long   sp;
+        unsigned long   ss;
+        unsigned long   fs_base;
+        unsigned long   gs_base;
+        unsigned long   ds;
+        unsigned long   es;
+        unsigned long   fs;
+        unsigned long   gs;
+}  user_regs_struct ; 
 ]]
+
 debug = true 
 
-function child_say(s)
-  if debug then
-    print("[CHILD]:" .. inspect(s))
-  end
-end
+function child_say(s)  if debug then print("[CHILD]:"  .. inspect(s)) end end
+function parent_say(s) if debug then print("[PARENT]:" .. inspect(s)) end end
 
-function parent_say(s)
-  if debug then
-    print("[PARENT]:" .. inspect(s))
-  end
-end
 
-function run_target(arg) 
-  child_say("Running the following:")
-  child_say(arg)
+function run_target(arg)
+  n = ffi.C.ptrace(ffi.C.PTRACE_TRACEME,0,null,null)
   local path = string.sub(io.popen("which " .. arg[1]):read("*a"),1,-2)
-  child_say(path)
   new_arg = {}
   for k,v in pairs(arg) do
     if k >= 1 then
       new_arg[k] = v
     end
   end
-  child_say(new_arg)
-  child_say(ffi.C.ptrace(ffi.C.PTRACE_TRACEME,0,0,0))
   S.execve(path,new_arg,{})
 end
 
 function run_debugger(child_pid)
+  local w, err, t = S.waitpid(-1, "all");
+  ffi.errno()
+  regs = ffi.new("user_regs_struct");
+  print(ffi.C.ptrace(ffi.C.PTRACE_GETSIGINFO,child_pid,null,ffi.cast("void *",  regs)))
+  print(regs.fs)
+  print(ffi.errno())
+  print("FINISHED")
 
+  ffi.errno(0)
+  print(ffi.C.ptrace(ffi.C.PTRACE_CONT,w,null,ffi.cast("void *",signal.SIGKILL)));
+  print(ffi.errno())
 end
 
 function go() 
-  child_pid = S.fork()
+  ffi.errno(0)
+  child_pid = posix.fork()
   if (child_pid == 0) then
-    child_say("I LIVE")
     run_target(arg)
   else
-    parent_say("TIME TO WATCH THEIR EVERY MOVE WITH PRIDE IN MY EYES AND FEAR IN MY HEART")
     run_debugger(child_pid)
   end
 end
