@@ -1,15 +1,16 @@
-local io        = require('io');
-local table     = require('table');
-local ffi       = require('ffi');
-local inspect   = require('inspect');
-local S         = require('syscall');
-local signal    = require "posix.signal"
-local unistd    = require "posix.unistd"
-local posix     = require('posix')
-local nr        = require("syscall." .. S.abi.os .. "." .. S.abi.arch .. ".nr")
-local constants = require("syscall." .. S.abi.os .. "." .. S.abi.arch .. ".constants")
+io        = require('io');
+table     = require('table');
+ffi       = require('ffi');
+inspect   = require('inspect');
+S         = require('syscall');
+signal    = require "posix.signal"
+unistd    = require "posix.unistd"
+posix     = require('posix')
+nr        = require("syscall." .. S.abi.os .. "." .. S.abi.arch .. ".nr")
+constants = require("syscall." .. S.abi.os .. "." .. S.abi.arch .. ".constants")
 
 c = ffi.cdef [[
+char *strerror(int errnum);
 enum __ptrace_request
 {
   PTRACE_TRACEME = 0,
