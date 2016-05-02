@@ -38,7 +38,7 @@ enum __ptrace_request
   PTRACE_SETSIGINFO = 0x4203
 };
 long ptrace(enum __ptrace_request request, pid_t pid, void *addr, void *data);
-typedef struct {
+typedef struct user_regs {
         unsigned long   r15;
         unsigned long   r14;
         unsigned long   r13;
@@ -66,14 +66,13 @@ typedef struct {
         unsigned long   es;
         unsigned long   fs;
         unsigned long   gs;
-}  user_regs_struct ; 
+}  user_regs ; 
 ]]
 
 debug = true 
 
 function child_say(s)  if debug then print("[CHILD]:"  .. inspect(s)) end end
 function parent_say(s) if debug then print("[PARENT]:" .. inspect(s)) end end
-
 
 function run_target(arg)
   n = ffi.C.ptrace(ffi.C.PTRACE_TRACEME,0,null,null)
@@ -87,18 +86,41 @@ function run_target(arg)
   S.execve(path,new_arg,{})
 end
 
-function run_debugger(child_pid)
-  local w, err, t = S.waitpid(-1, "all");
-  ffi.errno()
-  regs = ffi.new("user_regs_struct");
-  print(ffi.C.ptrace(ffi.C.PTRACE_GETSIGINFO,child_pid,null,ffi.cast("void *",  regs)))
-  print(regs.fs)
-  print(ffi.errno())
-  print("FINISHED")
+function print_error()
+  n = ffi.errno(0) 
+  if n ~= 0 then
+    print(ffi.string(ffi.C.strerror(n)))
+  end
+end
 
-  ffi.errno(0)
-  print(ffi.C.ptrace(ffi.C.PTRACE_CONT,w,null,ffi.cast("void *",signal.SIGKILL)));
-  print(ffi.errno())
+function run_debugger(child_pid)
+
+
+  numbers_to_syscall = {}
+  for k, v in pairs(nr.SYS) do
+    numbers_to_syscall[v] = k
+  end
+
+  local w, err, t = S.waitpid(-1, "all");
+  -- print(ffi.C.ptrace(ffi.C.PTRACE_GETSIGINFO,child_pid,null,ffi.cast("void *",  regs)))
+  -- print(ffi.C.ptrace(ffi.C.PTRACE_CONT,w,null,ffi.cast("void *",signal.SIGKILL)));
+  local i = 0
+  while(t.WIFSTOPPED)do 
+    i =  i + 1
+    print(i)
+
+    regs = ffi.new("user_regs");
+    print(ffi.C.ptrace(ffi.C.PTRACE_GETREGS,w,null,ffi.cast("void *", regs)))
+    print_error()
+
+    print(numbers_to_syscall[tonumber(regs.orig_ax)])
+    print("\n")
+    ffi.errno(0)
+    print(ffi.C.ptrace(ffi.C.PTRACE_SYSCALL,w,null,null));
+    print_error()
+    w, err, t = S.waitpid(-1, "all");
+  end
+
 end
 
 function go() 
