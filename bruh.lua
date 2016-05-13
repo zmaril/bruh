@@ -93,9 +93,21 @@ function print_error()
   end
 end
 
+function get_regs(w)
+    ffi.errno(0)
+    regs = ffi.new("user_regs");
+    ffi.C.ptrace(ffi.C.PTRACE_GETREGS,w,null,ffi.cast("void *", regs))
+    print_error()
+    return regs
+end
+
+function gogogo(w)
+    ffi.C.ptrace(ffi.C.PTRACE_SYSCALL,w,null,null);
+    print_error()
+    return S.waitpid(-1, "all")
+end
+
 function run_debugger(child_pid)
-
-
   numbers_to_syscall = {}
   for k, v in pairs(nr.SYS) do
     numbers_to_syscall[v] = k
@@ -104,21 +116,16 @@ function run_debugger(child_pid)
   local w, err, t = S.waitpid(-1, "all");
   -- print(ffi.C.ptrace(ffi.C.PTRACE_GETSIGINFO,child_pid,null,ffi.cast("void *",  regs)))
   -- print(ffi.C.ptrace(ffi.C.PTRACE_CONT,w,null,ffi.cast("void *",signal.SIGKILL)));
-  local i = 0
   while(t.WIFSTOPPED)do 
-    i =  i + 1
-    print(i)
+    regs = get_regs(w)
+    syscall = numbers_to_syscall[tonumber(regs.orig_ax)]
+    before = tostring(syscall) .. "(" .. tostring(regs.di) .. "," .. tostring(regs.si) .. "," .. tostring(regs.dx) ..  ")"
+    w,err,t = gogogo(w)
 
-    regs = ffi.new("user_regs");
-    print(ffi.C.ptrace(ffi.C.PTRACE_GETREGS,w,null,ffi.cast("void *", regs)))
-    print_error()
-
-    print(numbers_to_syscall[tonumber(regs.orig_ax)])
-    print("\n")
-    ffi.errno(0)
-    print(ffi.C.ptrace(ffi.C.PTRACE_SYSCALL,w,null,null));
-    print_error()
-    w, err, t = S.waitpid(-1, "all");
+    regs = get_regs(w)
+    syscall = numbers_to_syscall[tonumber(regs.orig_ax)]
+    print(before .. "=" .. tostring(regs.ax))
+    w,err,t = gogogo(w)
   end
 
 end
